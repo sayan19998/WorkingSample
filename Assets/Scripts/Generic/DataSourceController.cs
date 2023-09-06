@@ -21,22 +21,64 @@ public class DataSourceController : MonoBehaviour
 
     private void Start()
     {
-        // Parse the provided TextAsset
-        JsonArray dataArray = JsonValue.Parse(dataSource.text).AsJsonArray;
+        var rootValue = JsonValue.Parse(dataSource.text);
 
-        foreach (var item in dataArray)
+        if (rootValue.IsJsonObject)
+        {
+            HandleJsonObject(rootValue.AsJsonObject);
+        }
+        else if (rootValue.IsJsonArray)
+        {
+            HandleJsonArray(rootValue.AsJsonArray);
+        }
+        else
+        {
+            Debug.LogError("Error.");
+        }
+    }
+
+    //Handle a JSON object
+    private void HandleJsonObject(JsonObject jsonObject)
+    {
+        bool isDataObject = dataKeys.Exists(key => jsonObject.ContainsKey(key));
+
+        if (isDataObject)
         {
             DataModel modelData = new DataModel();
 
             foreach (var key in dataKeys)
             {
-                modelData.SetData(key, item[key]);
+                modelData.SetData(key, jsonObject[key]);
             }
-            
+
             CreateAndPopulateDataView(modelData);
+        }
+        else
+        {
+            foreach (var pair in jsonObject)
+            {
+                if (pair.Value.IsJsonObject)
+                {
+                    HandleJsonObject(pair.Value.AsJsonObject);
+                }
+                else if (pair.Value.IsJsonArray)
+                {
+                    HandleJsonArray(pair.Value.AsJsonArray);
+                }
+            }
         }
     }
 
+    //Handle a JSON array
+    private void HandleJsonArray(JsonArray jsonArray)
+    {
+        foreach (var item in jsonArray)
+        {
+            HandleJsonObject(item.AsJsonObject);
+        }
+    }
+    
+    
     private void CreateAndPopulateDataView(DataModel model)
     {
         // Instantiate the prefab
@@ -74,11 +116,11 @@ public class DataSourceController : MonoBehaviour
         }
     }
 
-    private async void TransformData(object childValue, Action<object> callback = null)
+    private async void TransformData(string childValue, Action<object> callback = null)
     {   
         if (childValue == null) return;
         
-        if(IsValidUrl(childValue as string))
+        if(IsValidUrl(childValue))
         {
             //Image Data
             await DownloadImage(childValue, callback);
